@@ -262,7 +262,8 @@ for i, plate_img in enumerate(plate_imgs):
     img_result = cv2.copyMakeBorder(img_result, top=10, bottom=10, left=10, right=10, borderType=cv2.BORDER_CONSTANT,
                                     value=(0, 0, 0))
 
-    chars = pytesseract.image_to_string(img_result, lang='kor', config='--psm 7 --oem 0')
+    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    chars = pytesseract.image_to_string(img_result, lang='kor_kor', config='--psm 7 --oem 0')
 
     result_chars = ''
     has_digit = False
