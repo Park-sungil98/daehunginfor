@@ -4,7 +4,7 @@ import numpy as np
 import pytesseract
 
 """이미지 생성"""
-img_ori = cv2.imread('car2.png')
+img_ori = cv2.imread('car5.png')
 
 height, width, channel = img_ori.shape
 """이미지 출력 및 출력할 화면의 색깔 설정"""
@@ -133,6 +133,7 @@ def find_chars(contour_list):
                     and width_diff < MAX_WIDTH_DIFF and height_diff < MAX_HEIGHT_DIFF:
                 matched_contours_idx.append(d2['idx'])
 
+        #최종후보군이 아닌 애들을 다시한번 검사
         matched_contours_idx.append(d1['idx'])
 
         if len(matched_contours_idx) < MIN_N_MATCHED:
@@ -164,12 +165,12 @@ for idx_list in result_idx:
     matched_result.append(np.take(possible_contours, idx_list))
 
 temp_result = np.zeros((height, width, channel), dtype=np.uint8)
-
+#후보군이 나온 것들을 그림
 for r in matched_result:
     for d in r:
         cv2.rectangle(temp_result, pt1=(d['x'], d['y']), pt2=(d['x'] + d['w'], d['y'] + d['h']), color=(255, 255, 255),
                       thickness=2)
-
+#번호판이 일렬로 정렬된게 아니기 때문에 회전을 시켜야함
 PLATE_WIDTH_PADDING = 1.3  # 1.3
 PLATE_HEIGHT_PADDING = 1.5  # 1.5
 MIN_PLATE_RATIO = 3
@@ -191,7 +192,7 @@ for i, matched_chars in enumerate(matched_result):
         sum_height += d['h']
 
     plate_height = int(sum_height / len(sorted_chars) * PLATE_HEIGHT_PADDING)
-
+    #삐뚤어진 정로를 활용하여 회전시킴
     triangle_height = sorted_chars[-1]['cy'] - sorted_chars[0]['cy']
     triangle_hypotenus = np.linalg.norm(
         np.array([sorted_chars[0]['cx'], sorted_chars[0]['cy']]) -
@@ -204,6 +205,7 @@ for i, matched_chars in enumerate(matched_result):
 
     img_rotated = cv2.warpAffine(img_thresh, M=rotation_matrix, dsize=(width, height))
 
+    #원하는 부분만 자름
     img_cropped = cv2.getRectSubPix(
         img_rotated,
         patchSize=(int(plate_width), int(plate_height)),
@@ -213,6 +215,7 @@ for i, matched_chars in enumerate(matched_result):
         0] < MIN_PLATE_RATIO > MAX_PLATE_RATIO:
         continue
 
+    #자른 후보군 이미지들을 저장
     plate_imgs.append(img_cropped)
     plate_infos.append({
         'x': int(plate_cx - plate_width / 2),
@@ -223,7 +226,7 @@ for i, matched_chars in enumerate(matched_result):
     plt.subplot(len(matched_result), 1, i + 1)
     plt.imshow(img_cropped, cmap='gray')
     plt.show()
-
+#후보군 이미지들을 다시한번 thresholding
 longest_idx, longest_text = -1, 0
 plate_chars = []
 
@@ -256,13 +259,12 @@ for i, plate_img in enumerate(plate_imgs):
                 plate_max_y = y + h
 
     img_result = plate_img[plate_min_y:plate_max_y, plate_min_x:plate_max_x]
-
+    #글씨를 잘 인식되게 하기위하여 하는 작업들
     img_result = cv2.GaussianBlur(img_result, ksize=(3, 3), sigmaX=0)
     _, img_result = cv2.threshold(img_result, thresh=0.0, maxval=255.0, type=cv2.THRESH_BINARY | cv2.THRESH_OTSU)
     img_result = cv2.copyMakeBorder(img_result, top=10, bottom=10, left=10, right=10, borderType=cv2.BORDER_CONSTANT,
                                     value=(0, 0, 0))
-
-    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    #tesseract를 이용하여 글자를 뽑아옴 psm은 한줄로 되어있는가, 0번 엔진 사용
     chars = pytesseract.image_to_string(img_result, lang='kor_kor', config='--psm 7 --oem 0')
 
     result_chars = ''
