@@ -29,7 +29,7 @@ Contours란 동일한 색 또는 동일한 강도를 가지고 있는 영역의
 findcontours를 잉요하여 검은 색 바탕에서 흰색 대상을 찾는다
 때문에 위에서 흑백으로 바꿔준 것
 """
-contours,_= cv2.findContours(
+contours, _ = cv2.findContours(
     img_thresh,
     mode=cv2.RETR_LIST,
     method=cv2.CHAIN_APPROX_SIMPLE
@@ -41,19 +41,19 @@ contours들의 정보를 저장한다.
 """
 temp_result = np.zeros((height, width, channel), dtype=np.uint8)
 
-contours_dict=[]
+contours_dict = []
 
 for contour in contours:
     x, y, w, h = cv2.boundingRect(contour)
-    cv2.rectangle(temp_result, pt1=(x,y), pt2=(x+w, y+h), color=(255,255,255), thickness=2)
+    cv2.rectangle(temp_result, pt1=(x, y), pt2=(x + w, y + h), color=(255, 255, 255), thickness=2)
     contours_dict.append({
-        'contour':contour,
-        'x':x,
-        'y':y,
-        'w':w,
-        'h':h,
-        'cx': x +(w/2),
-        'cy': y+(h/2)
+        'contour': contour,
+        'x': x,
+        'y': y,
+        'w': w,
+        'h': h,
+        'cx': x + (w / 2),
+        'cy': y + (h / 2)
     })
 
 # cv2.drawContours(temp_result, contours=contours, contourIdx=-1, color=(255, 255, 255))
@@ -68,43 +68,45 @@ MIN_AREA = 80
 MIN_WIDTH, MIN_HEIGHT = 2, 8
 MIN_RATIO, MAX_RATIO = 0.25, 1.0
 
-possible_contours=[]
+possible_contours = []
 
-cnt =0
+cnt = 0
 for d in contours_dict:
     area = d['w'] * d['h']
-    ratio = d['w']/d['h']
+    ratio = d['w'] / d['h']
 
     if area > MIN_AREA \
-    and d['w'] > MIN_WIDTH and d['h'] > MIN_HEIGHT \
-    and MIN_RATIO < ratio < MAX_RATIO:
+            and d['w'] > MIN_WIDTH and d['h'] > MIN_HEIGHT \
+            and MIN_RATIO < ratio < MAX_RATIO:
         d['idx'] = cnt
-        cnt+=1
+        cnt += 1
         possible_contours.append(d)
 
 temp_result = np.zeros((height, width, channel), dtype=np.uint8)
 
 for d in possible_contours:
-    cv2.rectangle(temp_result,pt1=(d['x'],d['y']), pt2=(d['x']+d['w'],d['y']+d['h']), color=(255, 255, 255), thickness=2)
-#contour와 다른 countour의 대가선의 5배 안에 있어야함
+    cv2.rectangle(temp_result, pt1=(d['x'], d['y']), pt2=(d['x'] + d['w'], d['y'] + d['h']), color=(255, 255, 255),
+                  thickness=2)
+# contour와 다른 countour의 대가선의 5배 안에 있어야함
 MAX_DIAG_MULTIPLYER = 5
-#contour와 다른 countour의 각도(세타)의 크기 지정
+# contour와 다른 countour의 각도(세타)의 크기 지정
 MAX_ANGLE_DIFF = 12.0
-#면적 차이
+# 면적 차이
 MAX_AREA_DIFF = 0.5
-#너비차이
+# 너비차이
 MAX_WIDTH_DIFF = 0.8
-#높이 차이
+# 높이 차이
 MAX_HEIGHT_DIFF = 0.2
-#위의 조건을 만족하는 값들이 3개 미만이면 옳지 않음
+# 위의 조건을 만족하는 값들이 3개 미만이면 옳지 않음
 MIN_N_MATCHED = 3
 
-#나중에 재귀로 계속 찾아야되기 때문에 함수로 지정
+
+# 나중에 재귀로 계속 찾아야되기 때문에 함수로 지정
 def find_chars(contour_list):
-    #최종적으로 남는 인덱스 값들을 저장
+    # 최종적으로 남는 인덱스 값들을 저장
     matched_result_idx = []
 
-    #contour하나와 또 다른 contour들을 비교하기 위하여 for문을 2번 돌게됨
+    # contour하나와 또 다른 contour들을 비교하기 위하여 for문을 2번 돌게됨
     for d1 in contour_list:
         matched_contours_idx = []
         for d2 in contour_list:
@@ -115,9 +117,9 @@ def find_chars(contour_list):
             dy = abs(d1['cy'] - d2['cy'])
 
             diagonal_length1 = np.sqrt(d1['w'] ** 2 + d1['h'] ** 2)
-            #두 중심의 거리 구하기
+            # 두 중심의 거리 구하기
             distance = np.linalg.norm(np.array([d1['cx'], d1['cy']]) - np.array([d2['cx'], d2['cy']]))
-            #각도 구하기
+            # 각도 구하기
             if dx == 0:
                 angle_diff = 90
             else:
@@ -207,12 +209,76 @@ for i, matched_chars in enumerate(matched_result):
         patchSize=(int(plate_width), int(plate_height)),
         center=(int(plate_cx), int(plate_cy))
     )
+    if img_cropped.shape[1] / img_cropped.shape[0] < MIN_PLATE_RATIO or img_cropped.shape[1] / img_cropped.shape[
+        0] < MIN_PLATE_RATIO > MAX_PLATE_RATIO:
+        continue
 
-
-
+    plate_imgs.append(img_cropped)
+    plate_infos.append({
+        'x': int(plate_cx - plate_width / 2),
+        'y': int(plate_cy - plate_height / 2),
+        'w': int(plate_width),
+        'h': int(plate_height)
+    })
     plt.subplot(len(matched_result), 1, i + 1)
     plt.imshow(img_cropped, cmap='gray')
     plt.show()
 
+longest_idx, longest_text = -1, 0
+plate_chars = []
 
+for i, plate_img in enumerate(plate_imgs):
+    plate_img = cv2.resize(plate_img, dsize=(0, 0), fx=1.6, fy=1.6)
+    _, plate_img = cv2.threshold(plate_img, thresh=0.0, maxval=255.0, type=cv2.THRESH_BINARY | cv2.THRESH_OTSU)
 
+    # find contours again (same as above)
+    contours, _ = cv2.findContours(plate_img, mode=cv2.RETR_LIST, method=cv2.CHAIN_APPROX_SIMPLE)
+
+    plate_min_x, plate_min_y = plate_img.shape[1], plate_img.shape[0]
+    plate_max_x, plate_max_y = 0, 0
+
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+
+        area = w * h
+        ratio = w / h
+
+        if area > MIN_AREA \
+                and w > MIN_WIDTH and h > MIN_HEIGHT \
+                and MIN_RATIO < ratio < MAX_RATIO:
+            if x < plate_min_x:
+                plate_min_x = x
+            if y < plate_min_y:
+                plate_min_y = y
+            if x + w > plate_max_x:
+                plate_max_x = x + w
+            if y + h > plate_max_y:
+                plate_max_y = y + h
+
+    img_result = plate_img[plate_min_y:plate_max_y, plate_min_x:plate_max_x]
+
+    img_result = cv2.GaussianBlur(img_result, ksize=(3, 3), sigmaX=0)
+    _, img_result = cv2.threshold(img_result, thresh=0.0, maxval=255.0, type=cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    img_result = cv2.copyMakeBorder(img_result, top=10, bottom=10, left=10, right=10, borderType=cv2.BORDER_CONSTANT,
+                                    value=(0, 0, 0))
+
+    chars = pytesseract.image_to_string(img_result, lang='kor', config='--psm 7 --oem 0')
+
+    result_chars = ''
+    has_digit = False
+    for c in chars:
+        if ord('가') <= ord(c) <= ord('힣') or c.isdigit():
+            if c.isdigit():
+                has_digit = True
+            result_chars += c
+
+    plate_chars.append(result_chars)
+
+    if has_digit and len(result_chars) > longest_text:
+        longest_idx = i
+
+    plt.subplot(len(plate_imgs), 1, i + 1)
+    plt.imshow(img_result, cmap='gray')
+    plt.show()
+
+print(plate_chars[longest_idx])
