@@ -1,0 +1,6 @@
+numpy>=1.4.0
+matplotlib>=1.5.0
+future
+
+[shapely]
+shapely>=1.2.10
